@@ -6,48 +6,30 @@ const API_URL = "http://localhost:5000/api";
 function AttemptTest() {
 
     const { testId } = useParams();
-
     const navigate = useNavigate();
-
 
     // ==========================================
     // TEST DATA
     // ==========================================
 
-    const [test, setTest] =
-        useState(null);
-
-    const [questions, setQuestions] =
-        useState([]);
-
+    const [test, setTest] = useState(null);
+    const [questions, setQuestions] = useState([]);
 
     // ==========================================
     // EXAM STATE
     // ==========================================
 
-    const [currentQuestion, setCurrentQuestion] =
-        useState(0);
-
-    const [answers, setAnswers] =
-        useState({});
-
-    const [timeLeft, setTimeLeft] =
-        useState(0);
-
+    const [currentQuestion, setCurrentQuestion] = useState(0);
+    const [answers, setAnswers] = useState({});
+    const [timeLeft, setTimeLeft] = useState(0);
 
     // ==========================================
     // UI STATE
     // ==========================================
 
-    const [loading, setLoading] =
-        useState(true);
-
-    const [submitting, setSubmitting] =
-        useState(false);
-
-    const [message, setMessage] =
-        useState("");
-
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [message, setMessage] = useState("");
 
     // ==========================================
     // LOAD TEST
@@ -57,49 +39,34 @@ function AttemptTest() {
 
         try {
 
-            const token =
-                localStorage.getItem("token");
+            const token = localStorage.getItem("token");
 
-
-            const response =
-                await fetch(
-                    `${API_URL}/tests/${testId}`,
-                    {
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`
-                        }
+            const response = await fetch(
+                `${API_URL}/tests/${testId}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
                     }
-                );
+                }
+            );
 
-
-            const data =
-                await response.json();
-
+            const data = await response.json();
 
             if (!response.ok) {
 
                 setMessage(
-                    data.message ||
-                    "Unable to load test"
+                    data.message || "Unable to load test"
                 );
 
                 return;
-
             }
 
-
             setTest(data.test);
-
-            setQuestions(
-                data.questions || []
-            );
-
+            setQuestions(data.questions || []);
 
             setTimeLeft(
                 data.test.duration * 60
             );
-
 
         } catch (error) {
 
@@ -112,18 +79,14 @@ function AttemptTest() {
         } finally {
 
             setLoading(false);
-
         }
-
     };
-
 
     useEffect(() => {
 
         loadTest();
 
     }, [testId]);
-
 
     // ==========================================
     // TIMER
@@ -136,44 +99,27 @@ function AttemptTest() {
             timeLeft <= 0 ||
             submitting
         ) {
-
             return;
-
         }
 
+        const timer = setInterval(() => {
 
-        const timer =
-            setInterval(() => {
+            setTimeLeft(previousTime => {
 
-                setTimeLeft(
-                    previousTime => {
+                if (previousTime <= 1) {
 
-                        if (
-                            previousTime <= 1
-                        ) {
+                    clearInterval(timer);
 
-                            clearInterval(
-                                timer
-                            );
+                    return 0;
+                }
 
-                            return 0;
+                return previousTime - 1;
+            });
 
-                        }
-
-                        return (
-                            previousTime - 1
-                        );
-
-                    }
-                );
-
-            }, 1000);
-
+        }, 1000);
 
         return () => {
-
             clearInterval(timer);
-
         };
 
     }, [
@@ -182,9 +128,8 @@ function AttemptTest() {
         submitting
     ]);
 
-
     // ==========================================
-    // AUTO SUBMIT
+    // AUTO SUBMIT WHEN TIME IS OVER
     // ==========================================
 
     useEffect(() => {
@@ -197,7 +142,6 @@ function AttemptTest() {
         ) {
 
             submitTest(true);
-
         }
 
     }, [
@@ -205,35 +149,22 @@ function AttemptTest() {
         loading
     ]);
 
-
     // ==========================================
     // FORMAT TIMER
     // ==========================================
 
     const formatTime = (seconds) => {
 
-        const minutes =
-            Math.floor(
-                seconds / 60
-            );
+        const minutes = Math.floor(seconds / 60);
 
-        const remainingSeconds =
-            seconds % 60;
-
+        const remainingSeconds = seconds % 60;
 
         return (
-            String(minutes)
-                .padStart(2, "0")
-            +
-            ":"
-            +
-            String(
-                remainingSeconds
-            ).padStart(2, "0")
+            String(minutes).padStart(2, "0") +
+            ":" +
+            String(remainingSeconds).padStart(2, "0")
         );
-
     };
-
 
     // ==========================================
     // ANSWER QUESTION
@@ -244,19 +175,11 @@ function AttemptTest() {
         selectedAnswer
     ) => {
 
-        setAnswers(
-            previousAnswers => ({
-
-                ...previousAnswers,
-
-                [questionId]:
-                    selectedAnswer
-
-            })
-        );
-
+        setAnswers(previousAnswers => ({
+            ...previousAnswers,
+            [questionId]: selectedAnswer
+        }));
     };
-
 
     // ==========================================
     // QUESTION NAVIGATION
@@ -269,108 +192,100 @@ function AttemptTest() {
             index < questions.length
         ) {
 
-            setCurrentQuestion(
-                index
-            );
-
+            setCurrentQuestion(index);
         }
-
     };
-
 
     // ==========================================
     // SUBMIT TEST
     // ==========================================
 
-    const submitTest = async (
-        automatic = false
-    ) => {
+    const submitTest = async (automatic = false) => {
 
         if (submitting) {
-
             return;
-
         }
 
+        // Count unanswered questions
+        const unansweredCount = questions.filter(
+            question => !answers[question._id]
+        ).length;
+
+        // ==========================================
+        // MANUAL SUBMISSION WARNING
+        // ==========================================
 
         if (!automatic) {
 
-            const confirmSubmit =
-                window.confirm(
-                    "Are you sure you want to submit the test?"
-                );
+            let confirmMessage;
 
+            if (unansweredCount > 0) {
 
-            if (!confirmSubmit) {
+                confirmMessage =
+                    `You still have ${unansweredCount} unanswered question${unansweredCount > 1 ? "s" : ""}.\n\nDo you still want to submit the test?`;
 
-                return;
+            } else {
 
+                confirmMessage =
+                    "You have answered all questions.\n\nAre you sure you want to submit the test?";
             }
 
+            const confirmSubmit =
+                window.confirm(confirmMessage);
+
+            if (!confirmSubmit) {
+                return;
+            }
         }
 
+        // ==========================================
+        // START SUBMISSION
+        // ==========================================
 
         setSubmitting(true);
-
         setMessage("");
-
 
         try {
 
             const token =
                 localStorage.getItem("token");
 
-
             const formattedAnswers =
-                questions.map(
-                    question => ({
+                questions.map(question => ({
 
-                        questionId:
-                            question._id,
+                    questionId:
+                        question._id,
 
-                        selectedAnswer:
-                            answers[
-                                question._id
-                            ] || ""
+                    selectedAnswer:
+                        answers[question._id] || ""
 
-                    })
-                );
-
+                }));
 
             const response =
                 await fetch(
                     `${API_URL}/results/submit`,
                     {
-
                         method: "POST",
 
                         headers: {
-
                             "Content-Type":
                                 "application/json",
 
                             Authorization:
                                 `Bearer ${token}`
-
                         },
 
-                        body:
-                            JSON.stringify({
+                        body: JSON.stringify({
+                            testId,
 
-                                testId,
-
-                                answers:
-                                    formattedAnswers
-
-                            })
-
+                            answers:
+                                formattedAnswers
+                        })
                     }
                 );
 
-
             const data =
                 await response.json();
-
 
             if (!response.ok) {
 
@@ -382,20 +297,16 @@ function AttemptTest() {
                 setSubmitting(false);
 
                 return;
-
             }
 
-
+            // Save latest result
             localStorage.setItem(
                 "latestResult",
-                JSON.stringify(
-                    data.result
-                )
+                JSON.stringify(data.result)
             );
 
-
+            // Go to result page
             navigate("/result");
-
 
         } catch (error) {
 
@@ -404,18 +315,13 @@ function AttemptTest() {
                 error
             );
 
-
             setMessage(
                 "Unable to submit test"
             );
 
-
             setSubmitting(false);
-
         }
-
     };
-
 
     // ==========================================
     // LOADING
@@ -424,79 +330,49 @@ function AttemptTest() {
     if (loading) {
 
         return (
-
             <div
                 style={{
-                    minHeight:
-                        "100vh",
-                    display:
-                        "flex",
-                    alignItems:
-                        "center",
-                    justifyContent:
-                        "center",
-                    background:
-                        "#f4f6f9"
+                    minHeight: "100vh",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "#f4f6f9"
                 }}
             >
-
-                <h2>
-                    Loading test...
-                </h2>
-
+                <h2>Loading test...</h2>
             </div>
-
         );
-
     }
-
 
     // ==========================================
     // ERROR
     // ==========================================
 
-    if (
-        message &&
-        !test
-    ) {
+    if (message && !test) {
 
         return (
-
             <div
                 style={{
-                    minHeight:
-                        "100vh",
-                    display:
-                        "flex",
-                    alignItems:
-                        "center",
-                    justifyContent:
-                        "center",
-                    background:
-                        "#f4f6f9"
+                    minHeight: "100vh",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "#f4f6f9"
                 }}
             >
 
                 <div
                     style={{
-                        background:
-                            "white",
-                        padding:
-                            "30px",
-                        borderRadius:
-                            "12px",
-                        textAlign:
-                            "center"
+                        background: "white",
+                        padding: "30px",
+                        borderRadius: "12px",
+                        textAlign: "center"
                     }}
                 >
 
-                    <h2>
-                        Error
-                    </h2>
+                    <h2>Error</h2>
 
-                    <p>
-                        {message}
-                    </p>
+                    <p>{message}</p>
 
                     <button
                         onClick={() =>
@@ -504,6 +380,15 @@ function AttemptTest() {
                                 "/student-dashboard"
                             )
                         }
+                        style={{
+                            marginTop: "15px",
+                            padding: "10px 18px",
+                            background: "#4f46e5",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer"
+                        }}
                     >
                         Back to Dashboard
                     </button>
@@ -511,11 +396,8 @@ function AttemptTest() {
                 </div>
 
             </div>
-
         );
-
     }
-
 
     // ==========================================
     // NO QUESTIONS
@@ -527,32 +409,22 @@ function AttemptTest() {
     ) {
 
         return (
-
             <div
                 style={{
-                    minHeight:
-                        "100vh",
-                    display:
-                        "flex",
-                    alignItems:
-                        "center",
-                    justifyContent:
-                        "center",
-                    background:
-                        "#f4f6f9"
+                    minHeight: "100vh",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "#f4f6f9"
                 }}
             >
 
                 <div
                     style={{
-                        background:
-                            "white",
-                        padding:
-                            "30px",
-                        borderRadius:
-                            "12px",
-                        textAlign:
-                            "center"
+                        background: "white",
+                        padding: "30px",
+                        borderRadius: "12px",
+                        textAlign: "center"
                     }}
                 >
 
@@ -567,16 +439,13 @@ function AttemptTest() {
                             )
                         }
                         style={{
-                            marginTop:
-                                "15px",
-                            padding:
-                                "10px 18px",
-                            background:
-                                "#4f46e5",
-                            color:
-                                "white",
-                            borderRadius:
-                                "8px"
+                            marginTop: "15px",
+                            padding: "10px 18px",
+                            background: "#4f46e5",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer"
                         }}
                     >
                         Back to Dashboard
@@ -585,11 +454,8 @@ function AttemptTest() {
                 </div>
 
             </div>
-
         );
-
     }
-
 
     // ==========================================
     // CURRENT QUESTION
@@ -598,82 +464,61 @@ function AttemptTest() {
     const question =
         questions[currentQuestion];
 
-
     const selectedAnswer =
-        answers[
-            question._id
-        ] || "";
-
+        answers[question._id] || "";
 
     const answeredCount =
-        Object.keys(
-            answers
-        ).length;
+        Object.keys(answers).length;
 
+    const unansweredCount =
+        questions.length - answeredCount;
 
     const progress =
         (
-            (
-                currentQuestion + 1
-            ) /
+            (currentQuestion + 1) /
             questions.length
         ) * 100;
-
 
     const isTimeLow =
         timeLeft <= 60;
 
+    // ==========================================
+    // MAIN UI
+    // ==========================================
 
     return (
 
         <div
             style={{
-                minHeight:
-                    "100vh",
-                background:
-                    "#f4f6f9",
-                paddingBottom:
-                    "40px"
+                minHeight: "100vh",
+                background: "#f4f6f9",
+                paddingBottom: "40px"
             }}
         >
 
-
             <div
                 style={{
-                    maxWidth:
-                        "1100px",
-                    margin:
-                        "0 auto",
-                    padding:
-                        "25px 20px"
+                    maxWidth: "1100px",
+                    margin: "0 auto",
+                    padding: "25px 20px"
                 }}
             >
 
-
-                {/* ================================= */}
-                {/* EXAM HEADER */}
-                {/* ================================= */}
+                {/* ==========================================
+                    EXAM HEADER
+                ========================================== */}
 
                 <div
                     style={{
-                        background:
-                            "white",
-                        padding:
-                            "20px 25px",
-                        borderRadius:
-                            "12px",
-                        marginBottom:
-                            "20px",
-                        display:
-                            "flex",
-                        justifyContent:
-                            "space-between",
-                        alignItems:
-                            "center",
-                        gap:
-                            "20px",
-                        flexWrap:
-                            "wrap",
+                        background: "white",
+                        padding: "20px 25px",
+                        borderRadius: "12px",
+                        marginBottom: "20px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "20px",
+                        flexWrap: "wrap",
                         boxShadow:
                             "0 4px 15px rgba(0,0,0,0.06)"
                     }}
@@ -687,17 +532,14 @@ function AttemptTest() {
 
                         <p
                             style={{
-                                color:
-                                    "#6b7280",
-                                marginTop:
-                                    "5px"
+                                color: "#6b7280",
+                                marginTop: "5px"
                             }}
                         >
                             {test.description}
                         </p>
 
                     </div>
-
 
                     {/* TIMER */}
 
@@ -707,18 +549,16 @@ function AttemptTest() {
                                 isTimeLow
                                     ? "#fee2e2"
                                     : "#eef2ff",
+
                             color:
                                 isTimeLow
                                     ? "#b91c1c"
                                     : "#3730a3",
-                            padding:
-                                "12px 22px",
-                            borderRadius:
-                                "10px",
-                            textAlign:
-                                "center",
-                            minWidth:
-                                "150px"
+
+                            padding: "12px 22px",
+                            borderRadius: "10px",
+                            textAlign: "center",
+                            minWidth: "150px"
                         }}
                     >
 
@@ -728,45 +568,34 @@ function AttemptTest() {
 
                         <h2
                             style={{
-                                marginTop:
-                                    "4px"
+                                marginTop: "4px"
                             }}
                         >
-                            {formatTime(
-                                timeLeft
-                            )}
+                            {formatTime(timeLeft)}
                         </h2>
 
                     </div>
 
                 </div>
 
-
-                {/* ================================= */}
-                {/* PROGRESS */}
-                {/* ================================= */}
+                {/* ==========================================
+                    PROGRESS
+                ========================================== */}
 
                 <div
                     style={{
-                        background:
-                            "white",
-                        padding:
-                            "18px 20px",
-                        borderRadius:
-                            "12px",
-                        marginBottom:
-                            "20px"
+                        background: "white",
+                        padding: "18px 20px",
+                        borderRadius: "12px",
+                        marginBottom: "20px"
                     }}
                 >
 
                     <div
                         style={{
-                            display:
-                                "flex",
-                            justifyContent:
-                                "space-between",
-                            marginBottom:
-                                "8px"
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "8px"
                         }}
                     >
 
@@ -781,7 +610,6 @@ function AttemptTest() {
                             </strong>
                         </span>
 
-
                         <span>
                             Answered:{" "}
                             <strong>
@@ -793,30 +621,21 @@ function AttemptTest() {
 
                     </div>
 
-
                     <div
                         style={{
-                            height:
-                                "8px",
-                            background:
-                                "#e5e7eb",
-                            borderRadius:
-                                "10px",
-                            overflow:
-                                "hidden"
+                            height: "8px",
+                            background: "#e5e7eb",
+                            borderRadius: "10px",
+                            overflow: "hidden"
                         }}
                     >
 
                         <div
                             style={{
-                                width:
-                                    `${progress}%`,
-                                height:
-                                    "100%",
-                                background:
-                                    "#4f46e5",
-                                transition:
-                                    "width 0.3s"
+                                width: `${progress}%`,
+                                height: "100%",
+                                background: "#4f46e5",
+                                transition: "width 0.3s"
                             }}
                         />
 
@@ -824,33 +643,26 @@ function AttemptTest() {
 
                 </div>
 
-
-                {/* ================================= */}
-                {/* MAIN EXAM AREA */}
-                {/* ================================= */}
+                {/* ==========================================
+                    MAIN EXAM AREA
+                ========================================== */}
 
                 <div
                     style={{
-                        display:
-                            "grid",
+                        display: "grid",
                         gridTemplateColumns:
                             "1fr 280px",
-                        gap:
-                            "20px"
+                        gap: "20px"
                     }}
                 >
-
 
                     {/* QUESTION */}
 
                     <div
                         style={{
-                            background:
-                                "white",
-                            padding:
-                                "30px",
-                            borderRadius:
-                                "12px",
+                            background: "white",
+                            padding: "30px",
+                            borderRadius: "12px",
                             boxShadow:
                                 "0 4px 15px rgba(0,0,0,0.06)"
                         }}
@@ -858,87 +670,64 @@ function AttemptTest() {
 
                         <p
                             style={{
-                                color:
-                                    "#6b7280",
-                                marginBottom:
-                                    "10px"
+                                color: "#6b7280",
+                                marginBottom: "10px"
                             }}
                         >
                             Question{" "}
                             {currentQuestion + 1}
                         </p>
 
-
                         <h2
                             style={{
-                                lineHeight:
-                                    "1.5",
-                                marginBottom:
-                                    "30px"
+                                lineHeight: "1.5",
+                                marginBottom: "30px"
                             }}
                         >
                             {question.questionText}
                         </h2>
-
 
                         {/* OPTIONS */}
 
                         <div>
 
                             {question.options.map(
-                                (
-                                    option,
-                                    index
-                                ) => {
+                                (option, index) => {
 
                                     const isSelected =
-                                        selectedAnswer ===
-                                        option;
-
+                                        selectedAnswer === option;
 
                                     return (
 
                                         <label
-                                            key={
-                                                index
-                                            }
+                                            key={index}
                                             style={{
-                                                display:
-                                                    "flex",
-                                                alignItems:
-                                                    "center",
-                                                gap:
-                                                    "12px",
-                                                padding:
-                                                    "15px",
-                                                marginBottom:
-                                                    "12px",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "12px",
+                                                padding: "15px",
+                                                marginBottom: "12px",
+
                                                 border:
                                                     isSelected
                                                         ? "2px solid #4f46e5"
                                                         : "1px solid #d1d5db",
+
                                                 background:
                                                     isSelected
                                                         ? "#eef2ff"
                                                         : "white",
-                                                borderRadius:
-                                                    "10px",
-                                                cursor:
-                                                    "pointer"
+
+                                                borderRadius: "10px",
+                                                cursor: "pointer"
                                             }}
                                         >
 
                                             <input
                                                 type="radio"
-                                                name={
-                                                    question._id
-                                                }
-                                                value={
-                                                    option
-                                                }
-                                                checked={
-                                                    isSelected
-                                                }
+                                                name={question._id}
+                                                value={option}
+                                                checked={isSelected}
                                                 onChange={() =>
                                                     handleAnswer(
                                                         question._id,
@@ -947,89 +736,80 @@ function AttemptTest() {
                                                 }
                                             />
 
-
                                             <span
                                                 style={{
-                                                    fontWeight:
-                                                        "500"
+                                                    fontWeight: "500"
                                                 }}
                                             >
                                                 {String.fromCharCode(
-                                                    65 +
-                                                    index
+                                                    65 + index
                                                 )}
                                                 .{" "}
                                                 {option}
                                             </span>
 
                                         </label>
-
                                     );
-
                                 }
                             )}
 
                         </div>
 
-
                         {/* NAVIGATION */}
 
                         <div
                             style={{
-                                display:
-                                    "flex",
+                                display: "flex",
                                 justifyContent:
                                     "space-between",
-                                marginTop:
-                                    "30px"
+                                marginTop: "30px"
                             }}
                         >
 
                             <button
                                 onClick={() =>
                                     goToQuestion(
-                                        currentQuestion -
-                                        1
+                                        currentQuestion - 1
                                     )
                                 }
                                 disabled={
-                                    currentQuestion ===
-                                    0
+                                    currentQuestion === 0
                                 }
                                 style={{
-                                    padding:
-                                        "11px 20px",
-                                    background:
-                                        "#e5e7eb",
-                                    borderRadius:
-                                        "8px"
+                                    padding: "11px 20px",
+                                    background: "#e5e7eb",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    cursor:
+                                        currentQuestion === 0
+                                            ? "not-allowed"
+                                            : "pointer"
                                 }}
                             >
                                 ← Previous
                             </button>
 
-
                             <button
                                 onClick={() =>
                                     goToQuestion(
-                                        currentQuestion +
-                                        1
+                                        currentQuestion + 1
                                     )
                                 }
                                 disabled={
                                     currentQuestion ===
-                                    questions.length -
-                                    1
+                                    questions.length - 1
                                 }
                                 style={{
-                                    padding:
-                                        "11px 20px",
-                                    background:
-                                        "#4f46e5",
-                                    color:
-                                        "white",
-                                    borderRadius:
-                                        "8px"
+                                    padding: "11px 20px",
+                                    background: "#4f46e5",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    cursor:
+                                        currentQuestion ===
+                                        questions.length - 1
+                                            ? "not-allowed"
+                                            : "pointer"
                                 }}
                             >
                                 Next →
@@ -1039,21 +819,16 @@ function AttemptTest() {
 
                     </div>
 
-
-                    {/* ================================= */}
-                    {/* QUESTION NAVIGATION */}
-                    {/* ================================= */}
+                    {/* ==========================================
+                        QUESTION NAVIGATION
+                    ========================================== */}
 
                     <div
                         style={{
-                            background:
-                                "white",
-                            padding:
-                                "25px",
-                            borderRadius:
-                                "12px",
-                            height:
-                                "fit-content",
+                            background: "white",
+                            padding: "25px",
+                            borderRadius: "12px",
+                            height: "fit-content",
                             boxShadow:
                                 "0 4px 15px rgba(0,0,0,0.06)"
                         }}
@@ -1061,89 +836,71 @@ function AttemptTest() {
 
                         <h3
                             style={{
-                                marginBottom:
-                                    "15px"
+                                marginBottom: "15px"
                             }}
                         >
                             Questions
                         </h3>
 
-
                         <div
                             style={{
-                                display:
-                                    "grid",
+                                display: "grid",
                                 gridTemplateColumns:
                                     "repeat(4, 1fr)",
-                                gap:
-                                    "8px"
+                                gap: "8px"
                             }}
                         >
 
                             {questions.map(
-                                (
-                                    item,
-                                    index
-                                ) => {
+                                (item, index) => {
 
                                     const answered =
-                                        answers[
-                                            item._id
-                                        ];
-
+                                        answers[item._id];
 
                                     const current =
-                                        currentQuestion ===
-                                        index;
-
+                                        currentQuestion === index;
 
                                     return (
 
                                         <button
-                                            key={
-                                                item._id
-                                            }
+                                            key={item._id}
                                             onClick={() =>
-                                                goToQuestion(
-                                                    index
-                                                )
+                                                goToQuestion(index)
                                             }
                                             style={{
-                                                height:
-                                                    "42px",
-                                                borderRadius:
-                                                    "8px",
+                                                height: "42px",
+                                                borderRadius: "8px",
+
                                                 border:
                                                     current
                                                         ? "2px solid #4f46e5"
                                                         : "1px solid #d1d5db",
+
                                                 background:
                                                     answered
                                                         ? "#dcfce7"
                                                         : "#f8fafc",
-                                                fontWeight:
-                                                    "600"
+
+                                                fontWeight: "600",
+                                                cursor: "pointer"
                                             }}
                                         >
                                             {index + 1}
                                         </button>
 
                                     );
-
                                 }
                             )}
 
                         </div>
 
+                        {/* LEGEND */}
 
                         <div
                             style={{
-                                marginTop:
-                                    "20px",
-                                fontSize:
-                                    "13px",
-                                color:
-                                    "#6b7280"
+                                marginTop: "20px",
+                                fontSize: "13px",
+                                color: "#6b7280"
                             }}
                         >
 
@@ -1153,8 +910,7 @@ function AttemptTest() {
 
                             <p
                                 style={{
-                                    marginTop:
-                                        "5px"
+                                    marginTop: "5px"
                                 }}
                             >
                                 ⬜ Not Answered
@@ -1162,54 +918,65 @@ function AttemptTest() {
 
                         </div>
 
+                        {/* UNANSWERED COUNT */}
+
+                        {unansweredCount > 0 && (
+
+                            <div
+                                style={{
+                                    marginTop: "15px",
+                                    padding: "10px",
+                                    background: "#fff7ed",
+                                    color: "#c2410c",
+                                    borderRadius: "8px",
+                                    fontSize: "13px"
+                                }}
+                            >
+                                {unansweredCount} unanswered
+                                question
+                                {unansweredCount > 1
+                                    ? "s"
+                                    : ""}
+                            </div>
+
+                        )}
 
                         {/* SUBMIT */}
 
                         <button
                             onClick={() =>
-                                submitTest(
-                                    false
-                                )
+                                submitTest(false)
                             }
-                            disabled={
-                                submitting
-                            }
+                            disabled={submitting}
                             style={{
-                                width:
-                                    "100%",
-                                padding:
-                                    "13px",
-                                marginTop:
-                                    "25px",
-                                background:
-                                    "#16a34a",
-                                color:
-                                    "white",
-                                borderRadius:
-                                    "8px",
-                                fontWeight:
-                                    "600",
-                                fontSize:
-                                    "15px"
+                                width: "100%",
+                                padding: "13px",
+                                marginTop: "25px",
+                                background: "#16a34a",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "8px",
+                                fontWeight: "600",
+                                fontSize: "15px",
+                                cursor: submitting
+                                    ? "not-allowed"
+                                    : "pointer"
                             }}
                         >
                             {submitting
                                 ? "Submitting..."
-                                : "Submit Test"
-                            }
+                                : "Submit Test"}
                         </button>
 
+                        {/* MESSAGE */}
 
                         {message && (
 
                             <p
                                 style={{
-                                    marginTop:
-                                        "12px",
-                                    color:
-                                        "#b91c1c",
-                                    fontSize:
-                                        "14px"
+                                    marginTop: "12px",
+                                    color: "#b91c1c",
+                                    fontSize: "14px"
                                 }}
                             >
                                 {message}
@@ -1224,9 +991,7 @@ function AttemptTest() {
             </div>
 
         </div>
-
     );
-
 }
 
 export default AttemptTest;
